@@ -1,0 +1,159 @@
+﻿@page
+@model FiresideTwenty.Pages.IndexModel
+@{
+    Layout = AllanSitesLibrary6.Layouts.Standard;
+}
+@section Head {
+    <title>Fireside Twenty - Get to Know Each Other Better</title>
+    <meta name="description" content="A comprehensive guide to improving your website performance and SEO.">
+
+    <link rel="icon" type="image/x-icon" href="/firesidetwenty/favicon.ico" />
+    <link rel="stylesheet" href="/firesidetwenty/firesidetwenty.css">
+    <script src="/firesidetwenty/vue3-sfc-loader.js"></script>
+    
+    <style>
+        .second-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            font-weight: 300;
+            color: #fff;
+        }
+
+        a {
+            text-decoration: none;
+            color: #d8dbd8;
+        }
+
+        @@media (max-width: 768px) {
+            .main-title {
+                font-size: 3rem;
+            }
+            .subtitle {
+                font-size: 1.1rem;
+            }
+        }
+
+        @@media (max-width: 600px) {
+            .questions {
+                flex-direction: column;
+            }
+        }
+    </style>
+}
+<video id="video-background" src="/firesidetwenty/backgroundvideos/background1.mp4" autoplay muted loop></video>
+<div>
+    <!--<video class="bgvideo" src="/firesidetwenty/videos/background2.mp4" autoplay muted loop ></video>
+    <video class="bgvideo" src="/firesidetwenty/videos/background3.mp4" autoplay muted loop ></video>
+    <video class="bgvideo" src="/firesidetwenty/videos/background4.mp4" autoplay muted loop ></video>
+    <video class="bgvideo" src="/firesidetwenty/videos/background5.mp4" autoplay muted loop ></video>-->
+</div>
+<main class="container py-4" style="max-width: 900px;">
+    <div class="glass-container mb-5">
+      <div class="mb-5 text-center">
+        <h1 class="main-title">Fireside Twenty</h1>
+        <p class="subtitle">Get to know each other better with thought-provoking questions.</p>
+      </div>
+
+      <h2 class="text-center mb-4 second-title">Choose your Questions</h2>
+      <div class="row g-4 mb-5">
+        @foreach (Option option in FiresideTwentyConstants.Options.Where(o => o.Homepage == "Primary"))
+        {
+          <div class="col-md-6 col-lg-6">
+            <div class="card h-100 bg-transparent border-0">
+              <div class="card-body text-center">
+                <h3 class="card-title mb-3" style="font-size: 1.5rem; color: #d8dbd8;">@option.Name</h3>
+                <p class="card-text mb-4" style="color: #fff;">@option.Description</p>
+                <a href="/start?set=@option.QueryStringId" class="btn btn-custom">Start</a>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+      <hr class="my-5 border-light" />
+
+      <h2 class="text-center mb-4 second-title">Other Question Sets</h2>
+      <div class="row g-4">
+        @foreach (Option option in FiresideTwentyConstants.Options.Where(o => o.Homepage == "Secondary"))
+        {
+          <div class="col-md-6 col-lg-6">
+            <div class="card h-100 bg-transparent border-0">
+              <div class="card-body text-center">
+                <h3 class="card-title mb-3" style="font-size: 1.25rem; color: #d8dbd8;">@option.Name</h3>
+                <p class="card-text mb-4" style="color: #fff;">@option.Description</p>
+                <a href="/start?set=@option.QueryStringId" class="btn btn-custom">Start</a>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+            const videoBackground = document.getElementById('video-background');
+            
+            const loadVideo = (videoSrc) => {
+              videoBackground.src =videoSrc;
+              videoBackground.style.display = 'block';
+            };
+
+            const observer = new IntersectionObserver((entries,observer) => {
+              console.log(entries)
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  loadVideo('/firesidetwenty/backgroundvideos/background1.mp4');
+                  observer.unobserve(entry.target);
+                }
+              });
+            });
+
+            observer.observe(videoBackground);
+        });
+  </script>
+
+@* 
+<main class="container text-center">
+    <section style="display: flex; flex-direction: column; justify-content: center; align-items: center">
+        <h1 class="mt-5 mb-2" style="font-size: 3rem; font-weight: 800; color: #f55b4f">Fireside Twenty</h1>
+        <p class="mb-4" style="font-size: 1.15rem; font-weight: 200; color: #d8dbd8">
+            Get to know each other better with thought-provoking questions.
+        </p>
+        <!--img src="https://media.istockphoto.com/id/1008922596/photo/burning-fireplace-at-home.jpg?s=612x612&w=0&k=20&c=-xgNFwrBP6Gvzbm3g9JKb87nX85u4_ShE49HjBF1FNk="
+             alt="Burning Fireplace"
+             style="width: 100%; max-width: 600px"
+             class="m-4" /-->
+    </section>
+
+    <div style="width: 100%; max-width: 600px; margin: 0 auto; background-color:#333333aa">
+        @* <hr style="border: 2px solid #d8dbd8; border-radius: 4px" /> 
+        <div class="p-3">
+            <h2 style="font-size: 2rem; color: #d8dbd8">Choose your Questions</h2>
+        </div>
+        <div class="row questions">
+            @foreach (Option option in FiresideTwentyConstants.Options.Where(o => o.Homepage == "Primary"))
+            {
+                <div class="col mt-3">
+                    <h2><a href="/start?set=@option.QueryStringId" class="btn btn-danger">@option.Name</a></h2>
+                    <div class="question-description">@option.Description</div>
+                </div>
+            }
+        </div>
+        <hr style="border: 2px solid #d8dbd8; border-radius: 4px" class="my-5" />
+        <h2 style="font-size: 1.75rem; color: #d8dbd8">Other Question Sets</h2>
+        <div class="row questions">
+            @foreach (Option option in FiresideTwentyConstants.Options.Where(o => o.Homepage == "Secondary"))
+            {
+                <div class="col mt-3">
+                    <h2><a href="/start?set=@option.QueryStringId" class="btn btn-danger">@option.Name</a></h2>
+                    <div class="question-description">@option.Description</div>
+                </div>
+            }
+        </div>
+    </div>
+</main> *@

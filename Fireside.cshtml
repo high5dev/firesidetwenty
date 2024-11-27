@@ -1,0 +1,515 @@
+﻿@page "/f/{key}"
+@using Microsoft.AspNetCore.Html
+@model FiresideTwenty.Pages.FiresideModel
+@{
+    Layout = AllanSitesLibrary6.Layouts.Standard;
+
+    string? key = Request.RouteValues["key"].ToString() ?? throw new Exception("Must have key");
+
+    FiresideTwentyDbContext dc2 = new FiresideTwentyDbContext();
+    FiresideChat? conversation = dc2.FiresideChats.SingleOrDefault(o => o.Key == key);
+
+    // https://docs.google.com/spreadsheets/d/1XLBLKEPPCAfAlN1nuokvq3g-8SZUVOZIU40prxhAxlc/edit#gid=0
+    List<Question> abc = CsvStuff.GetGoogleSheetCsvById<Question>("1XLBLKEPPCAfAlN1nuokvq3g-8SZUVOZIU40prxhAxlc", sheetId: 870591306);
+
+    abc = abc.Where(o => o.QuestionSetId == conversation.QuestionSetId).ToList()
+        .OrderBy(o => o.Number).ThenBy(o => o.AltOrder).ToList();
+
+    HtmlString allQuestionsJsonRaw = abc.SerializeToJsonRaw();
+}
+@section Head
+{
+    <title>Fireside Twenty - Get to Know Each Other Better</title>
+    <meta name="description" content="A comprehensive guide to improving your website performance and SEO.">
+
+    <link rel="icon" type="image/x-icon" href="/firesidetwenty/favicon.ico" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.js"></script>
+    <link rel="stylesheet" href="/firesidetwenty/firesidetwenty.css">
+    <style>
+    @@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap");
+
+    input {
+        border-radius: 5px;
+        border: none;
+        padding: 0.75rem 1rem;
+        font-size: 1.2rem;
+        font-weight: 500;
+        transition: transform 0.2s;
+
+        background-color: transparent;
+        color: #d8dbd8;
+        border: 2px solid #f55b4f;
+    }
+
+    input:focus {
+        outline: none;
+    }
+
+    .envelope {
+        width: 100%;
+    }
+
+    .answer-btn {
+        background-color: #f55b4f;
+        border: none;
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
+        width: 100%;
+        font-weight: 600;
+        border-radius: 5px;
+        transition: transform 0.2s;
+        text-align: center;
+        cursor: pointer;
+    }
+
+    .answer-btn:hover {
+        transform: scale(0.96);
+    }
+
+    .answered {
+        background-color: #28a745;
+    }
+
+    .answered:hover {
+        background-color: #28a745;
+        transform: scale(1);
+    }
+
+    @@media (max-width: 400px) {
+        .title{
+            font-size: 1.5rem;
+        }
+        input{
+            padding: 0.5rem 0.75rem;
+            font-size: 1rem;
+        }
+        img{
+            width: 200px;
+        }
+    }
+    </style> 
+}
+
+<div id="background-container">
+    <video id="video-background" src="/firesidetwenty/backgroundvideos/@(conversation?.SelectedBackgroundFile ?? "background1.mp4")" autoplay muted loop></video>
+</div>
+
+@if (abc.Count > 0)
+{
+    <div id="vue" class="container-fluid d-flex flex-column align-items-center justify-content-center ">
+        <h1 class="main-title text-center mt-5">Fireside Twenty</h1>
+        <div class="glass-container mt-4" style="max-width: 500px;">
+            <div v-if="!namesAreDone" class="p-4" style="max-width: 400px;">
+                <h3 class="mb-4 fw-bold">Enter your names</h3>
+                <hr class="border-2 border-secondary rounded-2" />
+                <div class="row">
+                    <div class="col-md-12 mb-4">
+                        <div class="mb-1">Name:</div>
+                        <input type="text" name="name1" maxlength="20" v-model="name1" class="form-control">
+                    </div>
+                    <div class="col-md-12">
+                        <div class="mb-1">Name:</div>
+                        <input type="text" name="name2" maxlength="20" v-model="name2" class="form-control">
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-custom mt-5 w-100" type="button" v-on:click="namesDone">Start</button>
+                </div>
+            </div>
+
+            <div v-if="namesAreDone">
+                <div v-if="!opened">
+                    <div v-if="questionNum <= highestQuestionNumber" class="box">
+                        <h3 class="text-center" style="color: #d8dbd8;">Open Question {{ questionNum }}</h3>
+                        <div>
+                            <a href="#" v-on:click="openQuestion">
+                                <img class="envelope" src="/firesidetwenty/envelope.png" style="filter: drop-shadow(1px 1px 4px #000000); box-shadow: none !important;" />
+                            </a>
+                        </div>
+                    </div>
+                    <div v-else style="display:flex; flex-direction: column; justify-content: center; align-items: center;">
+                        <div style="color: #d8dbd8; font-size:1.2rem;">
+                            You have reached the end of the questions.<br />
+                            Thank you and have a lovely day!
+                        </div>
+                        <div>
+                            <a class="btn btn-danger btn-sm mt-4" href="/">Back Home</a>
+                        </div>
+                    </div>
+                </div>
+                <div id="question" v-if="currentQuestion != null" class="box">
+                    <h3 class="mb-3" style="font-size: 1.6rem; text-align: center; width:100%; font-weight: 600;">
+                        {{ currentQuestion.title }}
+                        <br />
+                        <span style="font-size:1.1rem;">Question {{ questionNum }}</span>
+                    </h3>
+                    <div class="mb-5 text-center">
+                        {{ currentQuestion.questionText }}
+                    </div>
+                    <div class="answer-buttons" style="display: flex; align-items: center; flex-direction: column; justify-content: center; gap: 1rem;">
+
+                        <div class="answer-btn" v-on:click="leftAnswered = !leftAnswered"
+                                v-bind:class="{'answered': leftAnswered}">
+                            {{ name1 }} answered
+                        </div>
+
+
+                        <div class="answer-btn" v-on:click="rightAnswered = !rightAnswered"
+                                v-bind:class="{'answered': rightAnswered}">
+                            {{ name2 }} answered
+                        </div>
+
+                    </div>
+                    <div class="mt-5 text-center" v-if="leftAnswered && rightAnswered">
+                        <a v-on:click="closeCurrentQuestion" style="cursor: pointer; text-decoration: underline; font-size: 1.4rem;">
+                            Next Question
+                        </a>
+                    </div>
+                    <div class="mt-5" v-if="!leftAnswered || !rightAnswered">
+                        <p class="text-muted text-center">
+                            <a href="#" v-if="allQuestions.filter(o => o.number == questionNum - 1).length > 1" v-on:click="swapToAltQuestion" style="color: #3ec9fd;">
+                                Don't like this question?
+                                <br />
+                                Click here to swap it with another one.
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="position: fixed; bottom: 1rem; left: 0; right: 0; padding: 10px;">
+            <div style="display:flex;">
+                <div style="flex:1; text-align: left; margin-left:20px;">
+                    <a id="elapsedTime" href="#" style="color: #aaa; text-decoration: none; font-weight: bold; cursor: pointer;">
+                        <span id="shared-timer">00:00:00</span>
+                    </a>
+                    
+                </div>
+                <div style="flex:1; text-align: center;">
+                    <a href="/" style="color: #fff; text-decoration: none; font-weight: bold; cursor: pointer;">
+                        Go Back
+                    </a>
+                </div>
+                <div style="flex:1; text-align: right; margin-right:20px;">
+                    <a id="change-background" href="#" style="color: #aaa; text-decoration: none; font-weight: bold; cursor: pointer;">
+                        Change Background
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug my-5">
+        <p class="text-muted">Conversation: @conversation.Id</p>
+        <div class="text-muted">
+            @foreach (var a in abc)
+            {
+                <div>
+                    @a.QuestionText - @a.Number
+                </div>
+            }
+        </div>
+    </div>
+    <script>
+        const startObj = @conversation.JsonForm.SerializeToJsonRaw();
+    </script>
+    <script>
+        let allQuestions = @allQuestionsJsonRaw;
+
+        const FiresideApp = {
+            data() {
+                return {
+                    key: @key.ToJs(),
+                    name1: null,
+                    name2: null,
+                    namesAreDone: false,
+                    questionNum: 0,
+                    opened: false,
+                    leftAnswered: false,
+                    rightAnswered: false,
+                    questionAlts: null,
+
+                    allQuestions: allQuestions
+                }
+            },
+            mounted() {
+                // transfer data from startObj to data
+                if (startObj.questionAlts == null) {
+                    let maxQ = Math.max(...allQuestions.map(o => o.number));
+                    startObj.questionAlts = new Array(maxQ).fill(0);
+                }
+                this.fillFromObj(startObj);
+            },
+            watch: {
+                leftAnswered: async function (val) { // save on change
+                    await this.saveConversationStatus();
+                },
+                rightAnswered: async function (val) { // save on change
+                    await this.saveConversationStatus();
+                },
+            },
+            methods: {
+                fillFromObj: function (obj) {
+                    console.log('running fillFromObj');
+                    this.name1 = obj.name1;
+                    this.name2 = obj.name2;
+                    this.namesAreDone = !!obj.name1 || !!obj.name2; // crazy code to make sure it's a boolean
+                    this.questionNum = obj.questionNum;
+                    this.opened = obj.opened;
+                    this.leftAnswered = obj.leftAnswered;
+                    this.rightAnswered = obj.rightAnswered;
+                    this.questionAlts = obj.questionAlts;
+                },
+                async namesDone () {
+                    this.namesAreDone = true;
+                    // capitalize the names
+                    this.name1 = _.capitalize(this.name1);
+                    this.name2 = _.capitalize(this.name2);
+                    this.questionNum = 1; // start with the first question
+
+                    // save
+                    await this.saveConversationStatus();
+                },
+                openQuestion: async function () {
+                    this.opened = true;
+
+                    // save
+                    await this.saveConversationStatus();
+                },
+                closeCurrentQuestion: async function () {
+                    this.questionNum += 1;
+
+                    // reset here, not on openQuestion()
+                    this.opened = false;
+                    this.leftAnswered = false;
+                    this.rightAnswered = false;
+
+                    // save
+                    await this.saveConversationStatus();
+                },
+                swapToAltQuestion: async function () {
+                    // find all questions with this number
+                    let found = this.allQuestions.filter(o => o.number == this.questionNum);
+                    // find the current position of the current question
+                    let currentPos = this.questionAlts[this.questionNum - 1]; // // let currentPos = found.findIndex(o => o.questionText == this.currentQuestion.questionText);
+                    // if we are at the end, go back to the start
+                    if (currentPos == found.length - 1) {
+                        currentPos = 0;
+                    }
+                    else {
+                        currentPos += 1;
+                    }
+                    this.questionAlts[this.questionNum - 1] = currentPos;
+                    await this.saveConversationStatus();
+                },
+                async saveConversationStatus() {
+                    let savethis = {  // must match SaveJson in FiresideController
+                        key: this.key,
+                        name1: this.name1,
+                        name2: this.name2,
+                        namesAreDone: this.namesAreDone,
+                        questionNum: this.questionNum,
+                        opened: this.opened,
+                        allQuestions: this.allQuestions,
+                        leftAnswered: this.leftAnswered,
+                        rightAnswered: this.rightAnswered,
+                        questionAlts: this.questionAlts
+                    };
+
+                    console.debug(savethis);
+                    await fetch ('/firesidedata/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(savethis)
+                    });
+
+                    // send to signalR
+                    // try {
+                    //     connection.invoke("SendAnswerUpdate", savethis);
+                    // }
+                    // catch (err) {
+                    //     console.log('Error sending to SignalR');
+                    //     console.error(err);
+                    // }   
+                }
+            },
+            computed: {
+                highestQuestionNumber: function () {
+                    return Math.max(...this.allQuestions.map(o => o.number));
+                },
+                currentQuestion: function () {
+                    if (this.opened) {
+                        let alt = this.questionAlts[this.questionNum - 1]; // 0-indexed array, question 1 is position 0
+                        let found = this.allQuestions.filter(o => o.number == this.questionNum);
+                        return found.length > 0 ? found[alt] : undefined; // start with the first of the alts
+                    }
+                    else {
+                        return null;
+                    }
+
+                }
+            },
+            components: {
+                // 'counter': loadVueComponent('/aslib/allanvue/counter.vue')
+            }
+        };
+        const vue = Vue.createApp(FiresideApp).mount('#vue');
+
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.5.0/luxon.min.js" integrity="sha512-SN7iwxiJt9nFKiLayg3NjLItXPwRfBr4SQSIugMeBFrD4lIFJe1Z/exkTZYAg3Ul+AfZEGws2PQ+xSoaWfxRQQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+        const conversationKey = '@conversation.Key';
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/firesidehub?conversation=" + conversationKey)
+            .configureLogging(signalR.LogLevel.Information)
+            .withAutomaticReconnect()
+            .build();
+
+        (async () => {
+            await startSignalR(connection);
+            
+            // Notify server that the user has connected
+            connection.invoke('GetCurrentStopwatchTime');
+
+            // Set up TimeMe event handlers
+            TimeMe.callWhenUserLeaves(function () {
+                // User left the page
+                connection.invoke('StopViewing');
+            });
+
+            TimeMe.callWhenUserReturns(function () {
+                // User returned to the page
+                connection.invoke('StartViewing');
+            });
+
+            // Initial viewing status
+            if (TimeMe.isUserCurrentlyOnPage) {
+                connection.invoke('StartViewing');
+            } else {
+                connection.invoke('StopViewing');
+            }
+        
+        })();
+        
+        // Function to update the stopwatch display
+        function updateSharedTimer(elapsedMs) {
+            // Import the luxon Duration
+            const { Duration } = luxon;
+
+            // Convert elapsed time to Luxon Duration
+            const time = Duration.fromMillis(elapsedMs);
+            
+            // Decide the format based on the duration
+            let formattedTime;
+            if (time.hours > 0) {
+                // Include hours in the format if there are any
+                formattedTime = time.toFormat('hh:mm:ss');
+            } else {
+                // Exclude hours if less than one hour
+                formattedTime = time.toFormat('m:ss');
+            }
+
+            // Update the DOM element displaying the stopwatch
+            document.getElementById('shared-timer').textContent = formattedTime;
+        }
+        
+        connection.on('@FiresideHub.ReceiveStopwatchUpdate', function (elapsed) {
+            // Update the stopwatch display with the elapsed time
+            updateSharedTimer(elapsed);
+        });
+
+        connection.on('@FiresideHub.ReceiveAnswerUpdate', (updateObj) => {
+            if (updateObj) {
+                console.log('Received updated object from SignalR, running fillFromObj');
+                console.log(updateObj);
+                vue.fillFromObj(updateObj);
+            }
+        });
+
+        connection.on("ReceiveBackgroundUpdate", (newBackground) => {
+            console.log('Background updated:', newBackground);
+            document.getElementById('video-background').src = `/firesidetwenty/backgroundvideos/${newBackground}`;
+        });
+
+        TimeMe.initialize({
+            currentPageName: window.location.pathname,
+            idleTimeoutInSeconds: 0 // Consider user active as long as the page is open
+		});
+
+        window.onload = function () {
+			setInterval(function () {
+				let timeSpentOnPage = TimeMe.getTimeOnCurrentPageInSeconds();
+				// document.getElementById('timeInSeconds').innerText = timeSpentOnPage.toFixed(2);
+			}, 37);
+		}
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const changeBackgroundButton = document.getElementById('change-background');
+            const videoBackground = document.getElementById('video-background');
+            const conversationKey = @key.ToJs();
+
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const videoElement = entry.target;
+                        if (!videoElement.getAttribute('data-loaded')) {
+                            updateBackground();
+                            videoElement.setAttribute('data-loaded', true);
+                        }
+                        observer.unobserve(videoElement);
+                                updateBackground();
+                    }
+                });
+            }, { rootMargin: '0px', threshold: 0.1  });
+
+            observer.observe(videoBackground);
+
+            changeBackgroundButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                fetch('/firesidedata/changebackground', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ key: conversationKey })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.newBackground && videoBackground.src !== `/firesidetwenty/backgroundvideos/${data.newBackground}`)
+                    {
+                        videoBackground.src = `/firesidetwenty/backgroundvideos/${data.newBackground}`;
+                        videoBackground.load();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+
+            function updateBackground() {
+                fetch(`/firesidedata/get?key=${conversationKey}`)
+                .then(response => response.json())
+                .then(data => {
+                    const newSrc = `/firesidetwenty/backgroundvideos/${data.selectedBackgroundFile}`;
+                    if (data.selectedBackgroundFile && videoBackground.src !== newSrc) {
+                        videoBackground.src = newSrc;
+                        videoBackground.load();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+
+            updateBackground();
+        });
+    </script>
+}
+else
+{
+    <div>
+        Sorry, there was an error loading the questions.
+    </div>
+}
